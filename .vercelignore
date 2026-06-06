@@ -10,3 +10,5 @@ scripts/
 *.npy
 *.csv
 *.xlsx
+package-lock.json
+
