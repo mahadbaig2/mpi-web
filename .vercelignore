@@ -1,0 +1,12 @@
+# Vercel ignore list
+hf_space/
+dataset/
+node_modules/
+.next/
+.vercel/
+scripts/
+*.keras
+*.dcm
+*.npy
+*.csv
+*.xlsx
