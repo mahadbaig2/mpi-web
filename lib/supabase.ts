@@ -5,10 +5,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 // Client for use in the browser (Anon key)
+const dummyUrl = "https://placeholder-id.supabase.co";
+const dummyKey = "placeholder-key";
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase environment variables missing! Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local");
+  console.warn("Supabase environment variables missing! Using placeholder values for build time.");
 }
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export const supabase = createClient(
+  supabaseUrl || dummyUrl,
+  supabaseAnonKey || dummyKey
+);
 
 // Client for use in the server (Service Role key) 
 // We only initialize this if the key is present (Server-side only)
@@ -25,3 +32,4 @@ export const supabaseAdmin =
         },
       })
     : null;
+
