@@ -1,0 +1,8 @@
+# Use TF 2.16+ to natively support Keras 3 '.keras' saving format
+tensorflow-cpu>=2.16.1
+fastapi==0.111.0
+uvicorn==0.27.0
+python-multipart==0.0.9
+numpy==1.26.3
+Pillow==10.2.0
+huggingface-hub>=0.20.0
