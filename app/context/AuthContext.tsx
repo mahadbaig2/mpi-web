@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import type { GoogleUserInfo } from "@/lib/google-auth";
 
 interface User {
   email: string;
@@ -10,7 +9,14 @@ interface User {
   provider?: "google" | "local";
 }
 
-interface AuthContextType {  user: User | null;
+interface GoogleUserInfo {
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+interface AuthContextType {
+  user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -57,13 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async (userInfo: GoogleUserInfo) => {
     try {
-      if (!userInfo.email) {
-        return { success: false, error: "Google account did not return an email address." };
-      }
-
       const userData: User = {
         email: userInfo.email,
-        name: userInfo.name || userInfo.email.split("@")[0],
+        name: userInfo.name,
         picture: userInfo.picture,
         provider: "google",
       };

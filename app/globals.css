@@ -1,41 +1,41 @@
 @import "tailwindcss";
 
-/* ===== DESIGN SYSTEM: Dark Medical Theme ===== */
+/* ===== DESIGN SYSTEM: Sleek Crimson Light Theme ===== */
 :root {
-  --bg-primary: #0a0e1a;
-  --bg-secondary: #111827;
-  --bg-card: #1a1f35;
-  --bg-card-hover: #222845;
-  --bg-glass: rgba(26, 31, 53, 0.7);
-  --bg-input: #161b2e;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fdfdfd;
+  --bg-glass: rgba(255, 255, 255, 0.75);
+  --bg-input: #ffffff;
 
-  --text-primary: #f0f4ff;
-  --text-secondary: #94a3b8;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
   --text-muted: #64748b;
 
-  --accent-cyan: #06d6a0;
-  --accent-cyan-dim: rgba(6, 214, 160, 0.15);
-  --accent-blue: #3b82f6;
-  --accent-blue-dim: rgba(59, 130, 246, 0.15);
-  --accent-purple: #8b5cf6;
-  --accent-purple-dim: rgba(139, 92, 246, 0.15);
-  --accent-red: #ef4444;
-  --accent-red-dim: rgba(239, 68, 68, 0.15);
-  --accent-amber: #f59e0b;
-  --accent-amber-dim: rgba(245, 158, 11, 0.15);
+  --accent-cyan: #dc2626;
+  --accent-cyan-dim: rgba(220, 38, 38, 0.1);
+  --accent-blue: #be123c;
+  --accent-blue-dim: rgba(190, 18, 60, 0.1);
+  --accent-purple: #9f1239;
+  --accent-purple-dim: rgba(159, 18, 57, 0.1);
+  --accent-red: #b91c1c;
+  --accent-red-dim: rgba(185, 28, 28, 0.12);
+  --accent-amber: #d97706;
+  --accent-amber-dim: rgba(217, 119, 6, 0.12);
 
-  --gradient-hero: linear-gradient(135deg, #0a0e1a 0%, #0f1629 40%, #131b3a 100%);
-  --gradient-accent: linear-gradient(135deg, #06d6a0, #3b82f6);
-  --gradient-card: linear-gradient(135deg, rgba(6,214,160,0.08), rgba(59,130,246,0.08));
+  --gradient-hero: linear-gradient(135deg, #fdf8f7 0%, #fafafa 40%, #f5eef0 100%);
+  --gradient-accent: linear-gradient(135deg, #dc2626, #991b1b);
+  --gradient-card: linear-gradient(135deg, rgba(220,38,38,0.03), rgba(153,27,27,0.03));
 
-  --border-color: rgba(148, 163, 184, 0.1);
-  --border-glow: rgba(6, 214, 160, 0.3);
+  --border-color: #e2e8f0;
+  --border-glow: rgba(220, 38, 38, 0.3);
 
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 20px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
-  --shadow-glow: 0 0 30px rgba(6, 214, 160, 0.15);
-  --shadow-glow-blue: 0 0 30px rgba(59, 130, 246, 0.15);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.08);
+  --shadow-glow: 0 0 30px rgba(220, 38, 38, 0.08);
+  --shadow-glow-blue: 0 0 30px rgba(190, 18, 60, 0.08);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -43,7 +43,7 @@
   --radius-xl: 24px;
   --radius-full: 9999px;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-lora), 'Lora', Georgia, serif;
 }
 
 @theme inline {
@@ -77,7 +77,7 @@ body {
   background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-card);
+  background: var(--border-color);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -91,8 +91,8 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(6,214,160,0.2); }
-  50% { box-shadow: 0 0 40px rgba(6,214,160,0.4); }
+  0%, 100% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.4); }
 }
 
 @keyframes gradient-shift {
@@ -152,13 +152,6 @@ body {
   animation: gradient-shift 4s ease infinite;
 }
 
-.google-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
 /* ===== GLASS MORPHISM ===== */
 .glass {
   background: var(--bg-glass);
@@ -185,7 +178,7 @@ body {
 /* ===== BUTTONS ===== */
 .btn-primary {
   background: var(--gradient-accent);
-  color: #000;
+  color: #fff;
   font-weight: 600;
   padding: 12px 28px;
   border-radius: var(--radius-full);
@@ -203,7 +196,7 @@ body {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(6,214,160,0.3);
+  box-shadow: 0 8px 30px rgba(220, 38, 38, 0.25);
 }
 
 .btn-primary::after {

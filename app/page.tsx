@@ -59,7 +59,7 @@ export default function LandingPage() {
                 justifyContent: "center",
               }}
             >
-              <Heart size={18} color="#000" fill="#000" />
+              <Heart size={18} color="#fff" fill="#fff" />
             </div>
             <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.5px" }}>
               Cardio<span style={{ color: "var(--accent-cyan)" }}>Scan</span> AI
@@ -96,7 +96,7 @@ export default function LandingPage() {
             width: 400,
             height: 400,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(6,214,160,0.08) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(220,38,38,0.05) 0%, transparent 70%)",
             filter: "blur(60px)",
             pointerEvents: "none",
           }}
@@ -109,7 +109,7 @@ export default function LandingPage() {
             width: 350,
             height: 350,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(190,18,60,0.04) 0%, transparent 70%)",
             filter: "blur(60px)",
             pointerEvents: "none",
           }}
@@ -126,7 +126,7 @@ export default function LandingPage() {
               padding: "6px 16px",
               borderRadius: "var(--radius-full)",
               background: "var(--accent-cyan-dim)",
-              border: "1px solid rgba(6,214,160,0.2)",
+              border: "1px solid rgba(220,38,38,0.2)",
               marginBottom: 32,
               fontSize: 13,
               fontWeight: 600,
@@ -150,10 +150,10 @@ export default function LandingPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 40px rgba(6,214,160,0.3)",
+                boxShadow: "var(--shadow-glow)",
               }}
             >
-              <Heart size={36} color="#000" fill="#000" />
+              <Heart size={36} color="#fff" fill="#fff" />
             </div>
           </div>
 
@@ -369,7 +369,7 @@ export default function LandingPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#000",
+                  color: "#fff",
                   fontWeight: 800,
                   fontSize: 18,
                 }}
@@ -442,7 +442,7 @@ export default function LandingPage() {
                             marginLeft: 8,
                             fontSize: 10,
                             background: "var(--accent-cyan)",
-                            color: "#000",
+                            color: "#fff",
                             padding: "2px 8px",
                             borderRadius: "var(--radius-full)",
                             fontWeight: 700,

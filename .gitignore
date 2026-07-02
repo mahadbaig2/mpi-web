@@ -45,7 +45,3 @@ next-env.d.ts
 # dataset
 dataset/
 .vercel
-
-hf_space/models/*.keras
-
-.vercel

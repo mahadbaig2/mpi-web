@@ -85,7 +85,7 @@ export default function ModelStatus({ models }: ModelStatusProps) {
       <div style={{
         marginTop: "auto",
         padding: "10px",
-        background: "rgba(6,214,160,0.05)",
+        background: "var(--accent-cyan-dim)",
         borderRadius: "var(--radius-sm)",
         fontSize: 11,
         color: "var(--text-muted)",

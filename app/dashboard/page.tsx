@@ -21,6 +21,7 @@ import {
   FileText,
   User
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 // New Components
 import StatCard from "./components/StatCard";
@@ -70,14 +71,10 @@ export default function DashboardPage() {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const restFileInputRef = useRef<HTMLInputElement>(null);
 
   const [dragActive, setDragActive] = useState(false);
-  const [dragActiveRest, setDragActiveRest] = useState(false);
-  const [stressFile, setStressFile] = useState<File | null>(null);
-  const [restFile, setRestFile] = useState<File | null>(null);
-  const [stressPreviewUrl, setStressPreviewUrl] = useState<string | null>(null);
-  const [restPreviewUrl, setRestPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<AnalysisResult[]>([]);
@@ -204,35 +201,16 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const handleDragRest = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActiveRest(true);
-    } else if (e.type === "dragleave") {
-      setDragActiveRest(false);
-    }
-  }, []);
-
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0], "stress");
+      handleFileSelect(e.dataTransfer.files[0]);
     }
   }, []);
 
-  const handleDropRest = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActiveRest(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelect(e.dataTransfer.files[0], "rest");
-    }
-  }, []);
-
-  const handleFileSelect = (file: File, slot: "stress" | "rest" = "stress") => {
+  const handleFileSelect = (file: File) => {
     setError("");
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/bmp", "image/tiff"];
     if (!allowed.includes(file.type) && !file.name.endsWith(".dcm") && !file.name.endsWith(".npy")) {
@@ -243,15 +221,13 @@ export default function DashboardPage() {
       setError("File size must be under 50MB");
       return;
     }
+    setSelectedFile(file);
 
-    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
-
-    if (slot === "stress") {
-      setStressFile(file);
-      setStressPreviewUrl(previewUrl);
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     } else {
-      setRestFile(file);
-      setRestPreviewUrl(previewUrl);
+      setPreviewUrl(null);
     }
     setActiveTab("upload");
   };
@@ -282,14 +258,13 @@ export default function DashboardPage() {
   };
 
   const handleAnalyze = async () => {
-    if (!stressFile) return;
+    if (!selectedFile) return;
     setAnalyzing(true);
     setError("");
 
     try {
       const formData = new FormData();
-      formData.append("stress_file", stressFile);
-      if (restFile) formData.append("rest_file", restFile);
+      formData.append("file", selectedFile);
       if (user?.email) formData.append("user_email", user.email);
       formData.append("patient_info", JSON.stringify({
         ...patientInfo,
@@ -301,22 +276,15 @@ export default function DashboardPage() {
         body: formData,
       });
 
-      const predictData = await predictRes.json();
-      if (!predictRes.ok || predictData.error) {
-        throw new Error(predictData.error || "Failed to get model predictions");
-      }
-
-      const { scan_id, ...predictions } = predictData;
-      if (!predictions.ensemble) {
-        throw new Error("Invalid prediction response from server");
-      }
+      if (!predictRes.ok) throw new Error("Failed to get model predictions");
+      const { scan_id, ...predictions } = await predictRes.json();
 
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           predictions,
-          filename: stressFile.name,
+          filename: selectedFile.name,
           user_email: user?.email,
           scan_id: scan_id,
           patient_info: {
@@ -326,10 +294,7 @@ export default function DashboardPage() {
         }),
       });
 
-      if (!analyzeRes.ok) {
-        const analyzeErr = await analyzeRes.json().catch(() => ({}));
-        throw new Error(analyzeErr.error || "Failed to generate analysis report");
-      }
+      if (!analyzeRes.ok) throw new Error("Failed to generate analysis report");
       const { report } = await analyzeRes.json();
 
       if (scan_id) {
@@ -340,14 +305,14 @@ export default function DashboardPage() {
         const fallbackResult = {
           id: fallbackId,
           date: new Date().toISOString(),
-          filename: stressFile.name,
+          filename: selectedFile.name,
           predictions,
           report
         };
         const local = localStorage.getItem("cardioscan_history");
         const historyData = local ? JSON.parse(local) : [];
         localStorage.setItem("cardioscan_history", JSON.stringify([fallbackResult, ...historyData]));
-
+        
         router.push(`/results?id=${fallbackId}`);
       }
     } catch (err) {
@@ -358,29 +323,11 @@ export default function DashboardPage() {
   };
 
   const deleteHistoryItem = async (id: string) => {
-    if (!user?.email) return;
-
     try {
-      const res = await fetch(
-        `/api/scans?id=${encodeURIComponent(id)}&email=${encodeURIComponent(user.email)}`,
-        { method: "DELETE" }
-      );
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Delete failed");
-      }
-
-      setHistory((prev) => prev.filter((h) => h.id !== id));
-
-      const local = localStorage.getItem("cardioscan_history");
-      if (local) {
-        const parsed = JSON.parse(local).filter((item: AnalysisResult) => item.id !== id);
-        localStorage.setItem("cardioscan_history", JSON.stringify(parsed));
-      }
+      await supabase.from("scans").delete().eq("id", id);
+      setHistory(prev => prev.filter(h => h.id !== id));
     } catch (err) {
       console.error("Delete failed:", err);
-      setError(err instanceof Error ? err.message : "Failed to delete scan");
     }
   };
 
@@ -429,7 +376,7 @@ export default function DashboardPage() {
               flexShrink: 0,
             }}
           >
-            <Heart size={16} color="#000" fill="#000" />
+            <Heart size={16} color="#fff" fill="#fff" />
           </div>
           <span style={{ fontSize: 16, fontWeight: 700 }}>
             Cardio<span style={{ color: "var(--accent-cyan)" }}>Scan</span> AI
@@ -467,22 +414,17 @@ export default function DashboardPage() {
                 width: 36,
                 height: 36,
                 borderRadius: "50%",
-                background: user.picture ? "transparent" : "var(--gradient-accent)",
+                background: "var(--gradient-accent)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#000",
+                color: "#fff",
                 flexShrink: 0,
-                overflow: "hidden",
               }}
             >
-              {user.picture ? (
-                <img src={user.picture} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                user.name.charAt(0).toUpperCase()
-              )}
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <div style={{ overflow: "hidden" }}>
               <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -573,41 +515,29 @@ export default function DashboardPage() {
               ]} />
             </div>
 
-            {/* Upload Area (Small Version — two zones) */}
+            {/* Upload Area (Small Version) */}
             <div className="md:col-span-8">
-              <div style={{ display: "flex", gap: 12, height: "100%" }}>
-                {/* Stress */}
-                <div
-                  className={`upload-zone ${dragActive ? "dragging" : ""}`}
-                  onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{ flex: 1, padding: 24, position: "relative" }}
-                >
-                  <input ref={fileInputRef} type="file" accept="image/*,.dcm,.npy"
-                    onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0], "stress"); }}
-                    style={{ display: "none" }} />
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent-cyan-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                    {stressFile ? <Activity size={16} style={{ color: "var(--accent-cyan)" }} /> : <Upload size={16} style={{ color: "var(--accent-cyan)" }} />}
-                  </div>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Stress Scan</h3>
-                  <p style={{ color: "var(--text-muted)", fontSize: 12 }}>{stressFile ? stressFile.name : "Required"}</p>
+              <div
+                className={`upload-zone ${dragActive ? "dragging" : ""}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ height: "100%", padding: 32 }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.dcm,.npy"
+                  onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }}
+                  style={{ display: "none" }}
+                />
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent-cyan-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                  <Upload size={20} style={{ color: "var(--accent-cyan)" }} />
                 </div>
-                {/* Rest */}
-                <div
-                  className={`upload-zone ${dragActiveRest ? "dragging" : ""}`}
-                  onDragEnter={handleDragRest} onDragLeave={handleDragRest} onDragOver={handleDragRest} onDrop={handleDropRest}
-                  onClick={() => restFileInputRef.current?.click()}
-                  style={{ flex: 1, padding: 24, position: "relative" }}
-                >
-                  <input ref={restFileInputRef} type="file" accept="image/*,.dcm,.npy"
-                    onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0], "rest"); }}
-                    style={{ display: "none" }} />
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent-blue-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                    {restFile ? <Activity size={16} style={{ color: "var(--accent-blue)" }} /> : <Upload size={16} style={{ color: "var(--accent-blue)" }} />}
-                  </div>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Rest Scan</h3>
-                  <p style={{ color: "var(--text-muted)", fontSize: 12 }}>{restFile ? restFile.name : "Optional"}</p>
-                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>New Analysis Upload</h3>
+                <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Drop MPI scan file (JPG, DICOM) for immediate processing</p>
               </div>
             </div>
 
@@ -619,97 +549,51 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "upload" && (
-           <div style={{ maxWidth: 900 }}>
-             {!stressFile ? (
-                /* ── No file yet: show two empty drop zones ── */
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-                  {/* Stress drop zone */}
-                  <div
-                    className={`upload-zone ${dragActive ? "dragging" : ""}`}
-                    onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ minHeight: 280 }}
-                  >
-                    <input ref={fileInputRef} type="file" accept="image/*,.dcm,.npy"
-                      onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0], "stress"); }}
-                      style={{ display: "none" }} />
-                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--accent-cyan-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                      <Upload size={24} style={{ color: "var(--accent-cyan)" }} />
-                    </div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Stress Scan</h3>
-                    <p style={{ color: "var(--accent-cyan)", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>REQUIRED</p>
-                    <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Post-stress MPI image</p>
-                    <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>JPG, PNG, DICOM • Max 50MB</p>
+           <div style={{ maxWidth: 800 }}>
+             {!selectedFile ? (
+                <div
+                  className={`upload-zone ${dragActive ? "dragging" : ""}`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ minHeight: 400 }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.dcm,.npy"
+                    onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }}
+                    style={{ display: "none" }}
+                  />
+                   <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--accent-cyan-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+                    <Upload size={28} style={{ color: "var(--accent-cyan)" }} />
                   </div>
-                  {/* Rest drop zone */}
-                  <div
-                    className={`upload-zone ${dragActiveRest ? "dragging" : ""}`}
-                    onDragEnter={handleDragRest} onDragLeave={handleDragRest} onDragOver={handleDragRest} onDrop={handleDropRest}
-                    onClick={() => restFileInputRef.current?.click()}
-                    style={{ minHeight: 280, borderStyle: "dashed", opacity: 0.8 }}
-                  >
-                    <input ref={restFileInputRef} type="file" accept="image/*,.dcm,.npy"
-                      onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0], "rest"); }}
-                      style={{ display: "none" }} />
-                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--accent-blue-dim)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                      <Upload size={24} style={{ color: "var(--accent-blue)" }} />
-                    </div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Rest Scan</h3>
-                    <p style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>OPTIONAL</p>
-                    <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Resting-state MPI image</p>
-                    <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>JPG, PNG, DICOM • Max 50MB</p>
-                  </div>
+                  <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Drop your MPI scan image here</h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: 14 }}>JPG, PNG, WebP, DICOM, or NPY • Max 50MB</p>
                 </div>
              ) : (
                 <div>
-                  {/* ── Scan Preview Cards ── */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-                    {/* Stress preview */}
-                    <div className="glass-card" style={{ padding: 20 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-cyan)", letterSpacing: "0.08em" }}>STRESS SCAN</span>
-                        <button onClick={() => { setStressFile(null); setStressPreviewUrl(null); }} style={{ background: "var(--accent-red-dim)", border: "none", color: "var(--accent-red)", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} /></button>
-                      </div>
-                      <div style={{ width: "100%", height: 140, background: "var(--bg-input)", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-                        {stressPreviewUrl ? <img src={stressPreviewUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <FileImage size={36} style={{ color: "var(--text-muted)" }} />}
-                      </div>
-                      <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{stressFile.name}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{(stressFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-                    </div>
-                    {/* Rest preview / empty slot */}
-                    {restFile ? (
-                      <div className="glass-card" style={{ padding: 20 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-blue)", letterSpacing: "0.08em" }}>REST SCAN</span>
-                          <button onClick={() => { setRestFile(null); setRestPreviewUrl(null); }} style={{ background: "var(--accent-red-dim)", border: "none", color: "var(--accent-red)", width: 28, height: 28, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} /></button>
+                  {/* File Preview Card */}
+                  <div className="glass-card" style={{ padding: 24, display: "flex", gap: 24, marginBottom: 24 }}>
+                     <div style={{ width: 160, height: 160, background: "var(--bg-input)", borderRadius: "var(--radius-lg)", overflow: "hidden", border: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {previewUrl ? <img src={previewUrl} className="w-full h-full object-cover" /> : <FileImage size={48} style={{ color: "var(--text-muted)" }} />}
+                     </div>
+                     <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                           <div>
+                              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selectedFile.name}</h3>
+                              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                           </div>
+                           <button onClick={() => setSelectedFile(null)} style={{ background: "var(--accent-red-dim)", border: "none", color: "var(--accent-red)", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <X size={18} />
+                           </button>
                         </div>
-                        <div style={{ width: "100%", height: 140, background: "var(--bg-input)", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-                          {restPreviewUrl ? <img src={restPreviewUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <FileImage size={36} style={{ color: "var(--text-muted)" }} />}
+                        <div style={{ padding: "10px 14px", background: "var(--accent-cyan-dim)", borderRadius: "var(--radius-md)", fontSize: 13, color: "var(--accent-cyan)", border: "1px solid var(--border-color)" }}>
+                           Ensemble (VGG16 + ResNet50 + DenseNet121) will analyze this scan.
                         </div>
-                        <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{restFile.name}</p>
-                        <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{(restFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-                      </div>
-                    ) : (
-                      <div
-                        className={`upload-zone ${dragActiveRest ? "dragging" : ""}`}
-                        onDragEnter={handleDragRest} onDragLeave={handleDragRest} onDragOver={handleDragRest} onDrop={handleDropRest}
-                        onClick={() => restFileInputRef.current?.click()}
-                        style={{ minHeight: 220, opacity: 0.7 }}
-                      >
-                        <input ref={restFileInputRef} type="file" accept="image/*,.dcm,.npy"
-                          onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0], "rest"); }}
-                          style={{ display: "none" }} />
-                        <Upload size={20} style={{ color: "var(--accent-blue)", marginBottom: 8 }} />
-                        <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Add Rest Scan</p>
-                        <p style={{ color: "var(--text-muted)", fontSize: 12 }}>Optional — improves accuracy</p>
-                      </div>
-                    )}
-                  </div>
-                  {/* Channel info banner */}
-                  <div style={{ padding: "10px 14px", background: restFile ? "rgba(6,214,160,0.06)" : "rgba(255,166,0,0.06)", borderRadius: "var(--radius-md)", fontSize: 13, color: restFile ? "var(--accent-cyan)" : "#ffb347", border: `1px solid ${restFile ? "rgba(6,214,160,0.15)" : "rgba(255,166,0,0.2)"}`, marginBottom: 24 }}>
-                    {restFile
-                      ? "✅ Stress + Rest scans loaded — full 6-channel input ready for ensemble analysis."
-                      : "⚠️ Only stress scan provided — rest channels will be duplicated. Add a rest scan for best accuracy."}
+                     </div>
                   </div>
 
                   {/* Patient Information Form */}
@@ -811,10 +695,10 @@ export default function DashboardPage() {
                   )}
 
                   <div className="flex flex-col md:flex-row gap-4">
-                     <button onClick={handleAnalyze} className="btn-primary" disabled={analyzing || !patientInfo.patient_name || !stressFile} style={{ flex: 1, padding: "14px 0", justifyContent: "center" }}>
+                     <button onClick={handleAnalyze} className="btn-primary" disabled={analyzing || !patientInfo.patient_name} style={{ flex: 1, padding: "14px 0", justifyContent: "center" }}>
                         {analyzing ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><Brain size={18} /> Start Multi-Model Analysis</>}
                      </button>
-                     <button onClick={() => { setStressFile(null); setRestFile(null); setStressPreviewUrl(null); setRestPreviewUrl(null); }} className="btn-secondary" style={{ padding: "14px 24px" }}>Cancel</button>
+                     <button onClick={() => setSelectedFile(null)} className="btn-secondary" style={{ padding: "14px 24px" }}>Cancel</button>
                   </div>
                 </div>
              )}
